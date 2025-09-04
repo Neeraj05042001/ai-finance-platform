@@ -42,3 +42,21 @@
   }, []);
 
  ```
+
+
+ ## Database Design
+
+ -Install prisma : npm i -D prisma --legacy-peer-deps
+ - npx prisma init
+
+Pushing all changes to the database -- npx prisma migrate dev --name create-models
+
+it will connect ot supabase and update databse with all the models that we have created
+
+now create aprisma.js file in lib folder
+
+and also install npm i @prisma/client --legacy-peer-deps
+
+## creating server actions
+
+

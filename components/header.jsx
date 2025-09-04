@@ -3,8 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "./ui/button";
 import { LayoutDashboard, PenBox } from "lucide-react";
+import { checkUser } from "@/lib/checkUser";
 
-const Header = () => {
+const Header = async () => {
+  await checkUser();
   return (
     <div className="fixed top-0 w-full bg-white/80 backdrop-blur-md z-50 border-b">
       <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -49,9 +51,9 @@ const Header = () => {
             <UserButton
               appearance={{
                 elements: {
-                  avatarBox: "border-2 border-gray-500 ring-2 ring-offset-2 ring-gray-400 avatar h-20 w-20",
+                  avatarBox:
+                    "border-2 border-gray-500 ring-2 ring-offset-2 ring-gray-400 avatar h-20 w-20",
                 },
-               
               }}
             />
           </SignedIn>
