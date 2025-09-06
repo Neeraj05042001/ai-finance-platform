@@ -242,5 +242,182 @@ This page is a critical part of the finance platform since it consolidates all t
 ---
 
 
+# TRANSACTION PAGE WITH PAGINATION
+
+# 📄 Documentation: Transactions Page
+
+## 🔹 Overview  
+The **Transactions Page** is responsible for displaying, filtering, sorting, paginating, and managing financial transactions tied to a user’s account. It integrates **Next.js server components**, **client-side filtering/search**, and **Prisma-based server actions** for robust data fetching and manipulation.  
+
+---
+
+## 🔹 File Responsibilities
+
+### 1. `actions/accounts.js` (Server Actions)
+- Handles all **secure DB operations** for accounts and transactions.
+- Key functions:
+  - `updateDefaultAccount(accountId)` → sets an account as default while ensuring only one default per user.  
+  - `getAccountWithTransactions(accountId)` → fetches account + transactions (latest first) + transaction count.  
+  - `bulkDeleteTransaction(transactionIds)` → deletes multiple transactions in one transaction-safe operation and updates account balances.
+
+⚡ **Important Logic**:  
+- Uses `db.$transaction()` → ensures deleting transactions and updating balances happen **atomically** (either all succeed or none).  
+- Calculates balance updates based on transaction type:  
+  ```js
+  const change =
+    transaction.type === "EXPENSE"
+      ? transaction.amount
+      : -transaction.amount;
+  ```
+  ➝ This ensures balance reflects real-world accounting correctly.
+
+---
+
+### 2. `app/account/[id]/page.js` (Account Page)
+- **Server Component** → fetches account details and its transactions via `getAccountWithTransactions`.
+- Shows account name, type, balance, and total transaction count.
+- Renders **transaction table** inside `<Suspense>` with a **loading fallback**.
+
+⚡ **Important Logic**:  
+- Uses **Next.js `notFound()`** → automatically serves 404 if account doesn’t exist or user isn’t authorized.  
+- Uses `<Suspense>` → ensures non-blocking UI with skeleton/loader (`BarLoader`) while table loads.  
+
+---
+
+### 3. `components/_components/paginated-transaction-table.js` (Client Component)
+The **core UI for transactions**. Includes:
+
+#### ✅ Features Implemented:
+- **Search** → filter by description.  
+- **Filters** → by type (`INCOME` / `EXPENSE`) and recurring (`Recurring / Non-recurring`).  
+- **Sorting** → by `date`, `amount`, or `category`.  
+- **Pagination** → 15 items per page with navigation.  
+- **Bulk selection** with checkboxes:
+  - Select all on page
+  - Select individual transactions
+  - Bulk delete confirmation modal  
+- **Inline Actions** per transaction:
+  - Edit → navigate to edit form  
+  - Delete → delete individual transaction  
+- **Recurring Badge with Tooltip**:
+  - Shows interval (`Daily`, `Weekly`, etc.)
+  - Tooltip shows **next recurring date**  
+
+---
+
+## 🔹 Important Logics (💡 Remember for Interviews)
+
+### 1. **Filtering + Sorting Pipeline**
+All filtering, searching, and sorting is done in **one `useMemo` block**:
+```js
+const filteredAndSortedTransactions = useMemo(() => {
+  let result = [...transactions];
+
+  if (searchTerm) {
+    result = result.filter(t =>
+      t.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }
+
+  if (recurringFilter) {
+    result = result.filter(t =>
+      recurringFilter === "recurring" ? t.isRecurring : !t.isRecurring
+    );
+  }
+
+  if (typeFilter) {
+    result = result.filter(t => t.type === typeFilter);
+  }
+
+  result.sort((a, b) => {
+    switch (sortConfig.field) {
+      case "date": return new Date(a.date) - new Date(b.date);
+      case "amount": return a.amount - b.amount;
+      case "category": return a.category.localeCompare(b.category);
+      default: return 0;
+    }
+  });
+
+  return sortConfig.direction === "asc" ? result : result.reverse();
+}, [transactions, searchTerm, typeFilter, recurringFilter, sortConfig]);
+```
+
+⚡ **Why Important**:  
+- Demonstrates how to combine multiple filters + sorting efficiently.  
+- `useMemo` avoids re-computation on every render → performance optimization.
+
+---
+
+### 2. **Pagination Logic**
+```js
+const totalPages = Math.ceil(filteredAndSortedTransactions.length / ITEMS_PER_PAGE);
+
+const paginatedTransaction = useMemo(() => {
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  return filteredAndSortedTransactions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+}, [filteredAndSortedTransactions, currentPage]);
+```
+⚡ **Why Important**:  
+- Classic **client-side pagination** pattern.  
+- Easy to replace with **server-side pagination** later if dataset grows.
+
+---
+
+### 3. **Bulk Delete with Confirmation**
+```js
+const handleBulkDelete = async () => {
+  if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} transactions?`)) {
+    return;
+  }
+  deleteFn(selectedIds);
+};
+```
+
+⚡ **Why Important**:  
+- User experience → prevents accidental data loss.  
+- Interview angle → shows you understand **atomic deletes** + **UI confirmations**.
+
+---
+
+### 4. **Balance Update on Transaction Delete**
+Inside `bulkDeleteTransaction`:
+```js
+const accountBalanceChanges = transactions.reduce((acc, t) => {
+  const change = t.type === "EXPENSE" ? t.amount : -t.amount;
+  acc[t.accountId] = (acc[t.accountId] || 0) + change;
+  return acc;
+}, {});
+```
+
+⚡ **Why Important**:  
+- Ensures account balances **stay consistent** after deletes.  
+- Example of **business logic inside server action**.
+
+---
+
+## 🔹 Possible Interview Questions & Answers
+
+1. **Q: Why did you use `useMemo` for filtering and sorting?**  
+   A: To avoid recalculating filtered/sorted lists on every re-render, which improves performance especially with large datasets.
+
+2. **Q: How do you ensure data consistency when deleting transactions?**  
+   A: I use Prisma’s `db.$transaction()` to delete transactions and update account balances in one atomic operation.
+
+3. **Q: What’s the difference between client-side and server-side pagination here?**  
+   A: Currently, pagination is client-side (all data is fetched once, sliced per page). For very large datasets, I would implement server-side pagination to reduce memory and network usage.
+
+4. **Q: How do you prevent unauthorized access to transactions?**  
+   A: All server actions check `auth()` from Clerk and match `userId` before fetching or mutating data.
+
+5. **Q: What happens if a recurring transaction is deleted?**  
+   A: Currently, it deletes like any other transaction. Future improvement could be differentiating “series delete” vs “single instance delete.”
+
+---
+
+## 🔹 Future Improvements
+- Add **charts** (spending trends, category breakdown).  
+- Server-side pagination for scalability.  
+- Bulk **export to CSV/Excel**.  
+- More granular recurring transaction management.  
 
 

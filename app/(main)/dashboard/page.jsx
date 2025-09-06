@@ -9,7 +9,7 @@ import AccountCard from "./_components/account-card";
 
 const DashboardPage = async () => {
   const accounts = await getUserAccounts();
-  console.log(accounts);
+ 
   return (
     <div className="px-5">
       as

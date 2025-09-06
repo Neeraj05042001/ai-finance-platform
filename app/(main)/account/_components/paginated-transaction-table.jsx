@@ -278,8 +278,8 @@ const PaginatedTransactionTable = ({ transactions }) => {
                   onCheckedChange={handleSelectAll}
                   checked={
                     selectedIds.length ===
-                      paginatedTransaction?.length &&
-                    paginatedTransaction?.length > 0
+                      filteredAndSortedTransactions?.length &&
+                    filteredAndSortedTransactions?.length > 0
                   }
                 />
               </TableHead>
