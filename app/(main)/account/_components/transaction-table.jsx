@@ -277,8 +277,7 @@ const PaginatedTransactionTable = ({ transactions }) => {
                 <Checkbox
                   onCheckedChange={handleSelectAll}
                   checked={
-                    selectedIds.length ===
-                      paginatedTransaction?.length &&
+                    selectedIds.length === paginatedTransaction?.length &&
                     paginatedTransaction?.length > 0
                   }
                 />
